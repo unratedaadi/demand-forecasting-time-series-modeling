@@ -6,6 +6,7 @@ from src.forecasting import (
     evaluate_forecast,
     make_time_features,
     recursive_linear_forecast,
+    aggregate_weekly_sales,
 )
 
 
@@ -24,6 +25,13 @@ class TimeFeatureTests(unittest.TestCase):
         self.assertIn("day_of_week", featured[0])
         self.assertEqual(featured[0]["date"], date(2025, 1, 8))
         self.assertEqual(featured[0]["lag_1"], 16.0)
+
+    def test_aggregates_real_retail_product_rows_by_week(self):
+        rows = [
+            {"Product_Code": "P1", "W0": "11", "W1": "12"},
+            {"Product_Code": "P2", "W0": "7", "W1": "6"},
+        ]
+        self.assertEqual(aggregate_weekly_sales(rows), [{"week": 0, "demand": 18.0, "source": "UCI Sales Transactions Weekly"}, {"week": 1, "demand": 18.0, "source": "UCI Sales Transactions Weekly"}])
 
 
 class ForecastTests(unittest.TestCase):

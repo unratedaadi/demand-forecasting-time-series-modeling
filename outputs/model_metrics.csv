@@ -1,3 +1,3 @@
 model,mae,rmse,mape
-Seasonal naive,16.7,19.7507,11.6017
-Trend + calendar,6.9971,9.6302,4.8157
+Seasonal naive,400.0833,447.9439,5.6867
+Linear trend,880.8917,950.5203,12.5394

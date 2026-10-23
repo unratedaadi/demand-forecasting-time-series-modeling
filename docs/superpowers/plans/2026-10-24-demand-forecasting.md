@@ -23,7 +23,7 @@
 - Forecast values must never be negative.
 - MAPE must ignore zero actual values.
 - Feature generation must use only prior demand values for lags.
-- The report must clearly identify synthetic input data.
+- The report must cite UCI Sales Transactions Weekly and disclose its relative-week time index.
 
 ### Task 1: Forecasting core
 
@@ -32,7 +32,7 @@
 - Modify: `tests/test_forecasting.py`
 
 **Interfaces:**
-- Produces: `generate_synthetic_demand`, `seasonal_naive_forecast`, `fit_linear_model`, `recursive_linear_forecast`, `evaluate_forecast`.
+- Produces: `aggregate_weekly_sales`, `seasonal_naive_forecast`, `fit_linear_model`, `recursive_linear_forecast`, `evaluate_forecast`.
 
 - [ ] Write dependency-free failing tests for feature dates, forecast horizon, and MAE/RMSE/MAPE.
 - [ ] Run `python3 -m unittest discover -s tests -v` and confirm failure before implementation.
@@ -42,8 +42,8 @@
 ### Task 2: Reproducible pipeline and report
 
 **Files:**
-- Create: `run_pipeline.py`, `README.md`
-- Produces: `data/synthetic_demand.csv`, `outputs/forecast.csv`, `outputs/model_metrics.csv`, `outputs/dashboard.html`, `outputs/demand_history.svg`, `outputs/forecast_comparison.svg`.
+- Create: `run_pipeline.py`, `scripts/prepare_uci_weekly_sales.py`, `README.md`
+- Produces: `data/uci_weekly_sales_demand.csv`, `outputs/forecast.csv`, `outputs/model_metrics.csv`, `outputs/dashboard.html`, `outputs/demand_history.svg`, `outputs/forecast_comparison.svg`.
 
 - [ ] Orchestrate train/test evaluation and select the lowest-MAE model.
 - [ ] Export forecast and metrics artifacts plus readable SVG/HTML summaries.

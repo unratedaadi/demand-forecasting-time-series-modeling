@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import random
 from datetime import date, timedelta
 from statistics import mean
 from typing import Dict, Iterable, List, Sequence
@@ -11,21 +10,16 @@ from typing import Dict, Iterable, List, Sequence
 
 Row = Dict[str, object]
 
-
-def generate_synthetic_demand(start: date, days: int, seed: int = 42) -> List[Row]:
-    """Create simulated retail demand with trend, calendar effects, and promotions."""
-    randomizer = random.Random(seed)
-    rows: List[Row] = []
-    for index in range(days):
-        current_date = start + timedelta(days=index)
-        weekend_effect = 18 if current_date.weekday() in (4, 5) else -4
-        monthly_effect = 10 * math.sin((current_date.month - 1) * math.pi / 6)
-        trend = index * 0.045
-        promotion = 1 if index % 37 in range(3) else 0
-        promotion_effect = 24 if promotion else 0
-        demand = max(0, round(110 + trend + weekend_effect + monthly_effect + promotion_effect + randomizer.gauss(0, 7), 2))
-        rows.append({"date": current_date, "demand": demand, "promotion": promotion, "data_type": "simulated"})
-    return rows
+def aggregate_weekly_sales(rows: Iterable[Dict[str, str]]) -> List[Row]:
+    """Sum the 800 product-level UCI series into real weekly total demand."""
+    rows = list(rows)
+    totals = [0.0] * 52
+    for row in rows:
+        for week in range(52):
+            if f"W{week}" in row:
+                totals[week] += float(row[f"W{week}"])
+    observed_weeks = max((int(key[1:]) for row in rows for key in row if key.startswith("W") and key[1:].isdigit()), default=-1) + 1
+    return [{"week": week, "demand": total, "source": "UCI Sales Transactions Weekly"} for week, total in enumerate(totals[:observed_weeks])]
 
 
 def make_time_features(rows: Sequence[Row], lags: Sequence[int] = (1, 7), rolling_window: int = 7) -> List[Row]:
@@ -47,7 +41,7 @@ def make_time_features(rows: Sequence[Row], lags: Sequence[int] = (1, 7), rollin
     return featured
 
 
-def seasonal_naive_forecast(history: Sequence[Row], horizon: int, season_length: int = 7) -> List[Row]:
+def seasonal_naive_forecast(history: Sequence[Row], horizon: int, season_length: int = 7, frequency_days: int = 1) -> List[Row]:
     """Repeat the most recent weekly demand pattern into the future."""
     if len(history) < season_length:
         raise ValueError("History must contain at least one full seasonal cycle")
@@ -56,7 +50,7 @@ def seasonal_naive_forecast(history: Sequence[Row], horizon: int, season_length:
         raise TypeError("Each row's date must be a datetime.date")
     pattern = [float(row["demand"]) for row in history[-season_length:]]
     return [
-        {"date": latest_date + timedelta(days=step), "forecast": max(0.0, pattern[(step - 1) % season_length])}
+        {"date": latest_date + timedelta(days=step * frequency_days), "forecast": max(0.0, pattern[(step - 1) % season_length])}
         for step in range(1, horizon + 1)
     ]
 
@@ -81,17 +75,12 @@ def _solve_linear_system(matrix: List[List[float]], vector: List[float]) -> List
 
 
 def _design_row(current_date: date, index: int) -> List[float]:
-    """Intercept, trend, weekday effects, and month effects (one category omitted each)."""
-    return [
-        1.0,
-        float(index),
-        *[1.0 if current_date.weekday() == weekday else 0.0 for weekday in range(6)],
-        *[1.0 if current_date.month == month else 0.0 for month in range(1, 12)],
-    ]
+    """Return an intercept and index trend for datasets without calendar dates."""
+    return [1.0, float(index)]
 
 
 def fit_linear_model(history: Sequence[Row]) -> List[float]:
-    """Fit a ridge-regularized least-squares trend-and-calendar model."""
+    """Fit a ridge-regularized least-squares linear trend model."""
     features = [_design_row(row["date"], index) for index, row in enumerate(history)]
     targets = [float(row["demand"]) for row in history]
     width = len(features[0])
@@ -107,8 +96,8 @@ def fit_linear_model(history: Sequence[Row]) -> List[float]:
     return _solve_linear_system(xtx, xty)
 
 
-def recursive_linear_forecast(history: Sequence[Row], horizon: int) -> List[Row]:
-    """Predict a future horizon with the fitted trend-and-calendar model."""
+def recursive_linear_forecast(history: Sequence[Row], horizon: int, frequency_days: int = 1) -> List[Row]:
+    """Predict a future horizon with the fitted linear-trend model."""
     if not history:
         raise ValueError("History cannot be empty")
     coefficients = fit_linear_model(history)
@@ -117,7 +106,7 @@ def recursive_linear_forecast(history: Sequence[Row], horizon: int) -> List[Row]
         raise TypeError("Each row's date must be a datetime.date")
     forecast: List[Row] = []
     for step in range(1, horizon + 1):
-        future_date = latest_date + timedelta(days=step)
+        future_date = latest_date + timedelta(days=step * frequency_days)
         features = _design_row(future_date, len(history) + step - 1)
         prediction = max(0.0, sum(coefficient * value for coefficient, value in zip(coefficients, features)))
         forecast.append({"date": future_date, "forecast": round(prediction, 2)})

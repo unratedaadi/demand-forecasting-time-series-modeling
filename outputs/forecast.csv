@@ -1,31 +1,9 @@
-date,forecast,model,data_type
-2025-06-24,137.26,Trend + calendar,simulated
-2025-06-25,137.66,Trend + calendar,simulated
-2025-06-26,137.28,Trend + calendar,simulated
-2025-06-27,159.07,Trend + calendar,simulated
-2025-06-28,158.55,Trend + calendar,simulated
-2025-06-29,136.28,Trend + calendar,simulated
-2025-06-30,136.56,Trend + calendar,simulated
-2025-07-01,133.5,Trend + calendar,simulated
-2025-07-02,133.9,Trend + calendar,simulated
-2025-07-03,133.52,Trend + calendar,simulated
-2025-07-04,155.31,Trend + calendar,simulated
-2025-07-05,154.79,Trend + calendar,simulated
-2025-07-06,132.52,Trend + calendar,simulated
-2025-07-07,132.79,Trend + calendar,simulated
-2025-07-08,133.79,Trend + calendar,simulated
-2025-07-09,134.2,Trend + calendar,simulated
-2025-07-10,133.81,Trend + calendar,simulated
-2025-07-11,155.61,Trend + calendar,simulated
-2025-07-12,155.08,Trend + calendar,simulated
-2025-07-13,132.81,Trend + calendar,simulated
-2025-07-14,133.09,Trend + calendar,simulated
-2025-07-15,134.09,Trend + calendar,simulated
-2025-07-16,134.49,Trend + calendar,simulated
-2025-07-17,134.1,Trend + calendar,simulated
-2025-07-18,155.9,Trend + calendar,simulated
-2025-07-19,155.38,Trend + calendar,simulated
-2025-07-20,133.11,Trend + calendar,simulated
-2025-07-21,133.38,Trend + calendar,simulated
-2025-07-22,134.38,Trend + calendar,simulated
-2025-07-23,134.78,Trend + calendar,simulated
+week,forecast,model,source
+52,7035.0,Seasonal naive,UCI Sales Transactions Weekly
+53,7214.0,Seasonal naive,UCI Sales Transactions Weekly
+54,7187.0,Seasonal naive,UCI Sales Transactions Weekly
+55,7209.0,Seasonal naive,UCI Sales Transactions Weekly
+56,7035.0,Seasonal naive,UCI Sales Transactions Weekly
+57,7214.0,Seasonal naive,UCI Sales Transactions Weekly
+58,7187.0,Seasonal naive,UCI Sales Transactions Weekly
+59,7209.0,Seasonal naive,UCI Sales Transactions Weekly

@@ -1,9 +1,9 @@
-"""Run the complete simulated retail demand forecasting workflow."""
+"""Run the real UCI retail demand forecasting workflow."""
 
 from __future__ import annotations
 
 import csv
-from datetime import date
+from datetime import date, timedelta
 from html import escape
 from pathlib import Path
 from statistics import mean
@@ -11,7 +11,6 @@ from typing import Dict, Iterable, List
 
 from src.forecasting import (
     evaluate_forecast,
-    generate_synthetic_demand,
     recursive_linear_forecast,
     seasonal_naive_forecast,
 )
@@ -66,34 +65,33 @@ def build_dashboard(metrics: Dict[str, Dict[str, float]], selected_model: str, f
         f'<article><h3>{escape(model)}</h3><p>MAE <strong>{scores["mae"]:.2f}</strong></p><p>RMSE {scores["rmse"]:.2f} · MAPE {scores["mape"]:.2f}%</p></article>'
         for model, scores in metrics.items()
     )
-    forecast_rows = "".join(f'<tr><td>{row["date"]}</td><td>{row["forecast"]:.2f}</td></tr>' for row in future_forecast[:10])
-    html = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Demand Forecasting Dashboard</title><style>body{{font-family:Arial,sans-serif;max-width:1000px;margin:36px auto;color:#172554;padding:0 18px}}.notice{{background:#eff6ff;border-left:4px solid #2563eb;padding:12px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}}article{{padding:16px;border:1px solid #dbeafe;border-radius:10px;background:#f8fbff}}img{{width:100%;border:1px solid #e5e7eb;border-radius:8px;margin:18px 0}}table{{border-collapse:collapse;width:360px}}td,th{{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}}</style></head><body><h1>Retail Demand Forecasting</h1><p class="notice">This dashboard uses simulated retail-demand data for portfolio demonstration. It is not a production business forecast.</p><h2>Model selection</h2><p>The selected model is <strong>{escape(selected_model)}</strong>, based on the lowest holdout MAE.</p><section class="grid">{cards}</section><h2>Demand history</h2><img src="demand_history.svg" alt="Recent demand history"><h2>Forecast comparison</h2><img src="forecast_comparison.svg" alt="Test-period forecast comparison"><h2>Next 10 days</h2><table><tr><th>Date</th><th>Forecast units</th></tr>{forecast_rows}</table></body></html>'''
+    forecast_rows = "".join(f'<tr><td>Week {row["week"]}</td><td>{row["forecast"]:.2f}</td></tr>' for row in future_forecast)
+    html = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Demand Forecasting Dashboard</title><style>body{{font-family:Arial,sans-serif;max-width:1000px;margin:36px auto;color:#172554;padding:0 18px}}.notice{{background:#eff6ff;border-left:4px solid #2563eb;padding:12px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}}article{{padding:16px;border:1px solid #dbeafe;border-radius:10px;background:#f8fbff}}img{{width:100%;border:1px solid #e5e7eb;border-radius:8px;margin:18px 0}}table{{border-collapse:collapse;width:360px}}td,th{{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}}</style></head><body><h1>Retail Demand Forecasting</h1><p class="notice">Real weekly product-purchase data from UCI's Sales Transactions Weekly dataset (CC BY 4.0). The source provides week indices, not calendar dates.</p><h2>Model selection</h2><p>The selected model is <strong>{escape(selected_model)}</strong>, based on the lowest holdout MAE.</p><section class="grid">{cards}</section><h2>Demand history</h2><img src="demand_history.svg" alt="Weekly demand history"><h2>Forecast comparison</h2><img src="forecast_comparison.svg" alt="Test-period forecast comparison"><h2>Next 8 weeks</h2><table><tr><th>Relative week</th><th>Forecast units</th></tr>{forecast_rows}</table></body></html>'''
     (OUTPUT_DIR / "dashboard.html").write_text(html, encoding="utf-8")
 
 
 def main() -> None:
-    data = generate_synthetic_demand(date(2024, 1, 1), days=540, seed=42)
-    write_csv(DATA_DIR / "synthetic_demand.csv", data, ["date", "demand", "promotion", "data_type"])
-    train, test = data[:-90], data[-90:]
-    baseline = seasonal_naive_forecast(train, len(test))
-    linear = recursive_linear_forecast(train, len(test))
+    with (DATA_DIR / "uci_weekly_sales_demand.csv").open(newline="", encoding="utf-8") as file:
+        source_rows = list(csv.DictReader(file))
+    data = [{"date": date(2014, 1, 6) + timedelta(weeks=int(row["week"])), "demand": float(row["demand"]), "source": row["source"]} for row in source_rows]
+    train, test = data[:-12], data[-12:]
+    baseline = seasonal_naive_forecast(train, len(test), season_length=4, frequency_days=7)
+    linear = recursive_linear_forecast(train, len(test), frequency_days=7)
     actual = [float(row["demand"]) for row in test]
     metrics = {
         "Seasonal naive": evaluate_forecast(actual, [float(row["forecast"]) for row in baseline]),
-        "Trend + calendar": evaluate_forecast(actual, [float(row["forecast"]) for row in linear]),
+        "Linear trend": evaluate_forecast(actual, [float(row["forecast"]) for row in linear]),
     }
     selected_model = min(metrics, key=lambda name: metrics[name]["mae"])
-    future_forecast = seasonal_naive_forecast(data, 30) if selected_model == "Seasonal naive" else recursive_linear_forecast(data, 30)
-    for row in future_forecast:
-        row["model"] = selected_model
-        row["data_type"] = "simulated"
-    write_csv(OUTPUT_DIR / "forecast.csv", future_forecast, ["date", "forecast", "model", "data_type"])
+    raw_forecast = seasonal_naive_forecast(data, 8, season_length=4, frequency_days=7) if selected_model == "Seasonal naive" else recursive_linear_forecast(data, 8, frequency_days=7)
+    future_forecast = [{"week": len(data) + index, "forecast": row["forecast"], "model": selected_model, "source": "UCI Sales Transactions Weekly"} for index, row in enumerate(raw_forecast)]
+    write_csv(OUTPUT_DIR / "forecast.csv", future_forecast, ["week", "forecast", "model", "source"])
     write_csv(OUTPUT_DIR / "model_metrics.csv", [{"model": name, **scores} for name, scores in metrics.items()], ["model", "mae", "rmse", "mape"])
-    svg_line_chart(OUTPUT_DIR / "demand_history.svg", "Simulated demand — last 120 days", [{"name": "Actual demand", "values": [float(row["demand"]) for row in data[-120:]]}], ["#2563eb"])
+    svg_line_chart(OUTPUT_DIR / "demand_history.svg", "Real weekly total demand — 800 products", [{"name": "Actual demand", "values": [float(row["demand"]) for row in data]}], ["#2563eb"])
     svg_line_chart(OUTPUT_DIR / "forecast_comparison.svg", "Holdout forecast comparison", [{"name": "Actual", "values": actual}, {"name": "Selected forecast", "values": [float(row["forecast"]) for row in baseline if selected_model == "Seasonal naive"] or [float(row["forecast"]) for row in linear]}], ["#1d4ed8", "#f97316"])
     build_dashboard(metrics, selected_model, future_forecast)
     print(f"Selected model: {selected_model}")
-    print(f"30-day simulated forecast average: {mean(float(row['forecast']) for row in future_forecast):.2f} units")
+    print(f"8-week forecast average: {mean(float(row['forecast']) for row in future_forecast):.2f} units")
     print(f"Dashboard: {OUTPUT_DIR / 'dashboard.html'}")
 
 
